@@ -17,7 +17,10 @@
 # #%%
 # client.get_record_data("s-f40fd12e855a43bb8fba85b960ddbbc5")
 
-
+#%%
+"""
+Using notion API to save chat history
+"""
 #%%
 import os
 from notion_client import Client
@@ -56,10 +59,11 @@ blocks = notion.blocks.children.list(page_id)
 def QA_notion_blocks(Q, A, refs=()):
     """
     notion.blocks.children.append(page_id, children=QA_notion_blocks("Q1", "A1"))
+    notion.blocks.children.append(page_id, children=QA_notion_blocks("Q1", "A1", ("ref1", "ref2")))
 
     :param Q: str question
     :param A: str answer
-    :param refs: list of str references
+    :param refs: list or tuple of str references
     :return:
     """
     ref_blocks = []
@@ -72,14 +76,12 @@ def QA_notion_blocks(Q, A, refs=()):
         {'paragraph': {"rich_text": [{"text": {"content": A}}]}},
         {'toggle': {"rich_text": [{"text": {"content": f"Reference:"}, 'annotations': {'bold': True}}, ],
                     "children": ref_blocks, }},
-        # {'paragraph': {"rich_text": [{"text": {"content": f"Reference:"}, 'annotations': {'bold': True}}, ]}},
-        # *ref_blocks,
-        {'divider': {}}, # 'divider': {}
+        {'divider': {}},
     ]
 #%%
 import pickle as pkl
 chat_history = pkl.load(open("1906.04358_qa_history\\chat_history.pkl", "rb"))
-#%%
+#%% Add Chat history to notion
 for query, ans_struct in chat_history:
     answer = ans_struct["answer"]
     refdocs = ans_struct['source_documents']

@@ -21,23 +21,16 @@ database_id = "d3e3be7fc96a45de8e7d3a78298f9ccd"
 embed_rootdir = r"E:\DL_Projects\NLP\Embed_data"
 pdf_download_root = r"E:\DL_Projects\NLP\arxiv_pdf"
 #%%
-
-
-doctype = questionary.select(
-    "Type of document you want to load?",
-    choices=[
-        'html', 'pdf', 'notion', "arxiv"
-    ]).ask()
 savestr = questionary.text("Directory to save the embedding").ask()
 use_exist = questionary.confirm("Use existing embedding?", default=True).ask()
+
 while True:
     save_page_id = questionary.text("Notion page id for the page to save into?").ask()
     if save_page_id == "" or save_page_id is None:
-        if questionary.confirm("Search for a relavent page?", default=True).ask():
+        if questionary.confirm("Search for a relavent Notion page?", default=True).ask():
             text_query = questionary.text("Title search query?").ask()
             entries_return = notion.databases.query(database_id=database_id, filter={
                 "property": "Name", "title": {"contains": text_query}})
-
             print_entries(entries_return)
             entry = entries_return["results"][0]
         else:
@@ -48,21 +41,24 @@ while True:
         if questionary.confirm(f"Save to this page? {save_page_id}").ask():
             break
 
-
-ref_maxlen = 500
 # save_page_id = None
 # chat_temperature = 0.5
 # use_exist = True
 # savestr = "cnn_2023_04_05"
 # doctype = "html"
-#%%
+# ref_maxlen = 300
 embed_persist_dir = join(embed_rootdir, savestr)
 embeddings = OpenAIEmbeddings()
-
 if os.path.exists(embed_persist_dir) and use_exist:
     print("Loading embeddings from", embed_persist_dir)
     vectordb = Chroma(persist_directory=embed_persist_dir, embedding_function=embeddings)
 else:
+    doctype = questionary.select(
+        "Type of document you want to load?",
+        choices=[
+            'html', 'pdf', 'notion', "arxiv"
+        ]).ask()
+    #%%
     if doctype == "html":
         # ["https://www.cnn.com/2023/03/30/politics/donald-trump-indictment/index.html",
         #  "https://www.cnn.com/politics/live-news/trump-indictment-stormy-daniels-news-04-03-23/index.html",
@@ -118,6 +114,8 @@ else:
 #%%
 chat_temperature = questionary.text("Sampling temperature for ChatGPT?", default="0.5").ask()
 chat_temperature = float(chat_temperature)
+ref_maxlen = questionary.text("Max length of reference document?", default="300").ask()
+ref_maxlen = int(ref_maxlen)
 pdf_qa_new = ConversationalRetrievalChain.from_llm(ChatOpenAI(temperature=chat_temperature, model_name="gpt-3.5-turbo"),
                                     vectordb.as_retriever(), return_source_documents=True, max_tokens_limit=4000)
 
@@ -139,11 +137,11 @@ while True:
     answer = result["answer"]
     refdocs = result['source_documents']
     refstrs = [refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
-    print("Answer:")
-    print(textwrap.fill(result["answer"], 45))
-    print("Reference:")
+    print("\nAnswer:")
+    print(textwrap.fill(result["answer"], 80))
+    print("\nReference:")
     for refdoc in refdocs:
-        print(textwrap.fill(refdoc.page_content[:ref_maxlen], 45))
+        print("Ref doc:\n",textwrap.fill(refdoc.page_content[:ref_maxlen], 80))
     print("\n")
     save_qa_history(query, result, qa_path)
     if save_page_id is not None:
