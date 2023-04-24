@@ -1,0 +1,88 @@
+from notion_client import Client
+
+def QA_notion_blocks(Q, A, refs=()):
+    """
+    notion.blocks.children.append(page_id, children=QA_notion_blocks("Q1", "A1"))
+    notion.blocks.children.append(page_id, children=QA_notion_blocks("Q1", "A1", ("ref1", "ref2")))
+
+    :param Q: str question
+    :param A: str answer
+    :param refs: list or tuple of str references
+    :return:
+    """
+    ref_blocks = []
+    for ref in refs:
+        ref_blocks.append({'quote': {"rich_text": [{"text": {"content": ref}}]}})
+    return [
+        {'paragraph': {"rich_text": [{"text": {"content": f"Question:"}, 'annotations': {'bold': True}}, ]}},
+        {'paragraph': {"rich_text": [{"text": {"content": Q}}]}},
+        {'paragraph': {"rich_text": [{"text": {"content": f"Answer:"}, 'annotations': {'bold': True}}, ]}},
+        {'paragraph': {"rich_text": [{"text": {"content": A}}]}},
+        {'toggle': {"rich_text": [{"text": {"content": f"Reference:"}, 'annotations': {'bold': True}}, ],
+                    "children": ref_blocks, }},
+        {'divider': {}},
+    ]
+
+
+def append_chathistory_to_notion_page(notion: Client, page_id: str, chat_history: list, ref_maxlen=250):
+    """
+    Append chat history to notion page
+
+    :param notion: notion client
+    :param page_id: str
+    :param chat_history: list of tuple (query, answer_struct)
+    :return:
+    """
+    for query, ans_struct in chat_history:
+        answer = ans_struct["answer"]
+        refdocs = ans_struct['source_documents']
+        refstrs = [refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
+        notion.blocks.children.append(page_id, children=QA_notion_blocks(query, answer, refstrs))
+
+
+def print_entries(entries_return):
+    # formating the output, so Name starts at the same column
+    # pad the string to be 36 character
+    print("id".ljust(36), "\t", "Name",)
+    for entry in entries_return["results"]:
+        print(entry["id"], "\t", entry["properties"]["Name"]["title"][0]["plain_text"], )
+
+
+def clean_metadata(metadata):
+    metadata_new = {}
+    for k, v in metadata.items():
+        if v is None or v == []:
+            continue
+        metadata_new[k] = metadata[k]
+    return metadata_new
+
+
+def save_qa_history(query, result, qa_path,):
+    import os
+    import pickle as pkl
+    from os.path import join
+    uid = 0
+    while os.path.exists(join(qa_path, f"QA{uid:05d}.pkl")):
+        uid += 1
+    pkl.dump((query, result), open(join(qa_path, f"QA{uid:05d}.pkl"), "wb"))
+
+    pkl_path = join(qa_path, "chat_history.pkl")
+    if os.path.exists(pkl_path):
+        chat_history = pkl.load(open(pkl_path, "rb"))
+    else:
+        chat_history = []
+    chat_history.append((query, result))
+    pkl.dump(chat_history, open(pkl_path, "wb"))
+
+    with open(os.path.join(qa_path, "QA.md"), "a", encoding="utf-8") as f:
+        f.write("\n**Question:**\n\n")
+        f.write(query)
+        f.write("\n\n**Answer:**\n\n")
+        f.write(result["answer"])
+        f.write("\n\nReferences:\n\n")
+        for doc in result["source_documents"]:
+            f.write("> ")
+            f.write(doc.page_content[:250])
+            f.write("\n\n")
+        f.write("-------------------------\n\n")
+
