@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*_qa_history/*
 
 # C extensions
 *.so
