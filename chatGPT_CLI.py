@@ -2,6 +2,7 @@
 import questionary
 
 from langchain import OpenAI, ConversationChain, LLMChain, PromptTemplate
+from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferWindowMemory
 
 template = """Assistant is a large language model trained by OpenAI.
@@ -23,7 +24,7 @@ prompt = PromptTemplate(
 
 
 chatgpt_chain = LLMChain(
-    llm=OpenAI(temperature=0),
+    llm=ChatOpenAI(temperature=0.1, model_name="gpt-3.5-turbo"),#OpenAI(temperature=0),
     prompt=prompt,
     verbose=False,
     memory=ConversationBufferWindowMemory(k=2),
