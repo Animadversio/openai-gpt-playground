@@ -136,12 +136,13 @@ while True:
 
     answer = result["answer"]
     refdocs = result['source_documents']
-    refstrs = [refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
+    refstrs = [str(refdoc.metadata) + refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
     print("\nAnswer:")
     print(textwrap.fill(result["answer"], 80))
     print("\nReference:")
     for refdoc in refdocs:
-        print("Ref doc:\n",textwrap.fill(refdoc.page_content[:ref_maxlen], 80))
+        print("Ref doc:\n", refdoc.metadata)
+        print(textwrap.fill(refdoc.page_content[:ref_maxlen], 80))
     print("\n")
     save_qa_history(query, result, qa_path)
     if save_page_id is not None:
