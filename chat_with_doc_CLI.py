@@ -18,8 +18,13 @@ from notion_tools import QA_notion_blocks, clean_metadata, print_entries, save_q
 
 notion = Client(auth=os.environ["NOTION_TOKEN"])
 database_id = "d3e3be7fc96a45de8e7d3a78298f9ccd"
-embed_rootdir = r"E:\DL_Projects\NLP\Embed_data"
-pdf_download_root = r"E:\DL_Projects\NLP\arxiv_pdf"
+if os.environ["COMPUTERNAME"] == 'PONCELAB-OFF6':
+    embed_rootdir = r"D:\DL_Projects\NLP\Embed_data"
+    pdf_download_root = r"D:\DL_Projects\NLP\arxiv_pdf"
+else:
+    embed_rootdir = r"E:\DL_Projects\NLP\Embed_data"
+    pdf_download_root = r"E:\DL_Projects\NLP\arxiv_pdf"
+
 #%%
 savestr = questionary.text("Directory to save the embedding").ask()
 use_exist = questionary.confirm("Use existing embedding?", default=True).ask()
@@ -56,7 +61,7 @@ else:
     doctype = questionary.select(
         "Type of document you want to load?",
         choices=[
-            'html', 'pdf', 'notion', "arxiv"
+            'html', 'pdf', 'notion', "arxiv", "ar5iv"
         ]).ask()
     #%%
     if doctype == "html":
@@ -84,6 +89,27 @@ else:
         loader = PyPDFLoader(join(pdf_download_root, f"{arxiv_id}.pdf"))
         # loader = PDFMinerLoader(pdf_path)
         pages = loader.load_and_split()
+    elif doctype == "ar5iv":
+        import requests
+        # load url with bs4
+        # parse the html
+        from bs4 import BeautifulSoup
+        import urllib.request
+        import re
+        arxiv_id = questionary.text("What's the arxiv id?").ask()
+        url = f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}"
+        # loader = UnstructuredURLLoader(urls=[url])
+        r = requests.get(url, allow_redirects=True, )
+        open(join(pdf_download_root, f"{arxiv_id}.html"), 'wb').write(r.content)
+        # raise NotImplementedError
+        loader = BSHTMLLoader(join(pdf_download_root, f"{arxiv_id}.html"),
+                  open_encoding="utf8", bs_kwargs={"features": "html.parser"})
+        # loader = PyPDFLoader(join(pdf_download_root, f"{arxiv_id}.pdf"))
+        # loader = PDFMinerLoader(pdf_path)
+        # bs = BeautifulSoup(urllib.request.urlopen(url).read(), features="html5lib")
+        # bs = BeautifulSoup(urllib.request.urlopen(url).read(), "html.parser")
+        pages = loader.load_and_split()
+        #%%
     elif doctype == "notion":
         loader = NotionDBLoader(os.environ["NOTION_TOKEN"], database_id)
         page_id2read = questionary.text("What's the page id of the page in notion?").ask()
@@ -145,4 +171,10 @@ while True:
     print("\n")
     save_qa_history(query, result, qa_path)
     if save_page_id is not None:
-        notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs))
+        try:
+            notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs))
+        except Exception as e:
+            print("Failed to save to notion")
+            print(e)
+            refstrs_meta = [str(refdoc.metadata) for refdoc in refdocs]
+            notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs_meta))
