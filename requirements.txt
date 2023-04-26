@@ -1,0 +1,12 @@
+notion_client
+openai
+langchain
+chromadb
+tiktoken
+pdfminer.six
+pypdf
+unstructured
+beautifulsoup4
+html5lib
+arxiv
+questionary
