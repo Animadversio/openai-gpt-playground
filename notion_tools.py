@@ -43,8 +43,11 @@ def append_chathistory_to_notion_page(notion: Client, page_id: str, chat_history
 def print_entries(entries_return):
     # formating the output, so Name starts at the same column
     # pad the string to be 36 character
+    if type(entries_return) == dict:
+        entries_return = entries_return["results"]
+
     print("id".ljust(36), "\t", "Name",)
-    for entry in entries_return["results"]:
+    for entry in entries_return:
         print(entry["id"], "\t", entry["properties"]["Name"]["title"][0]["plain_text"], )
 
 
@@ -86,3 +89,19 @@ def save_qa_history(query, result, qa_path,):
             f.write("\n\n")
         f.write("-------------------------\n\n")
 
+
+def update_title(notion: Client, page_id, title):
+    update_struct = {
+        "properties": {
+            "title": {
+                "title": [
+                    {
+                        "text": {
+                            "content": title
+                        }
+                    }
+                ]
+            }
+        }
+    }
+    notion.pages.update(page_id, **update_struct)
