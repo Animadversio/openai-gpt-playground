@@ -9,10 +9,8 @@ from notion_tools import print_entries
 entries = notion.databases.query(database_id=diary_database_id, )
 print_entries(entries)
 #%%
-#%%
-#%%
 # modify title
-def update_title(page_id, title):
+def update_title(notion: Client, page_id, title):
     update_struct = {
         "properties": {
             "title": {
@@ -28,8 +26,9 @@ def update_title(page_id, title):
     }
     notion.pages.update(page_id, **update_struct)
 #%%
-entries = notion.databases.query(database_id=diary_database_id, )
 import datetime
+"""Add proper date to the title of the diary entries """
+entries = notion.databases.query(database_id=diary_database_id, )
 for entry in entries["results"]:
     page_id = entry["id"]
     # page_prop = notion.pages.retrieve(page_id)
@@ -49,7 +48,7 @@ for entry in entries["results"]:
         date_ = datetime.date.fromisoformat(date)
         # format date like Apr. 1, 2021
         datestr_new = date_.strftime("%b.%d, %Y")
-        update_title(page_id, "Diary "+datestr_new)
+        update_title(notion, page_id, "Diary "+datestr_new)
         print(datestr_new)
     # update_title(entry["id"], date)
     # print(entry["properties"]["Name"]["title"][0]["plain_text"], entry["id"])
