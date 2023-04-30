@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *_qa_history/*
-
+arxiv_src/*
 # C extensions
 *.so
 
