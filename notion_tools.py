@@ -14,13 +14,13 @@ def QA_notion_blocks(Q, A, refs=()):
     for ref in refs:
         ref_blocks.append({'quote': {"rich_text": [{"text": {"content": ref}}]}})
     return [
+        {'divider': {}},
         {'paragraph': {"rich_text": [{"text": {"content": f"Question:"}, 'annotations': {'bold': True}}, ]}},
         {'paragraph': {"rich_text": [{"text": {"content": Q}}]}},
         {'paragraph': {"rich_text": [{"text": {"content": f"Answer:"}, 'annotations': {'bold': True}}, ]}},
         {'paragraph': {"rich_text": [{"text": {"content": A}}]}},
         {'toggle': {"rich_text": [{"text": {"content": f"Reference:"}, 'annotations': {'bold': True}}, ],
                     "children": ref_blocks, }},
-        {'divider': {}},
     ]
 
 
@@ -40,7 +40,7 @@ def append_chathistory_to_notion_page(notion: Client, page_id: str, chat_history
         notion.blocks.children.append(page_id, children=QA_notion_blocks(query, answer, refstrs))
 
 
-def print_entries(entries_return):
+def print_entries(entries_return, print_prop=()):
     # formating the output, so Name starts at the same column
     # pad the string to be 36 character
     if type(entries_return) == dict:
@@ -48,7 +48,7 @@ def print_entries(entries_return):
 
     print("id".ljust(36), "\t", "Name",)
     for entry in entries_return:
-        print(entry["id"], "\t", entry["properties"]["Name"]["title"][0]["plain_text"], )
+        print(entry["id"], "\t", entry["properties"]["Name"]["title"][0]["plain_text"], entry["url"] if "url" in print_prop else "")
 
 
 def clean_metadata(metadata):
