@@ -13,23 +13,46 @@ from langchain.chains import ConversationalRetrievalChain
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 # from langchain.llms import OpenAI  # the LLM model we'll use (CHatGPT)
 from langchain.chat_models import ChatOpenAI
+from langchain.callbacks import get_openai_callback
 import questionary
 from notion_tools import QA_notion_blocks, clean_metadata, print_entries, save_qa_history
 
-notion = Client(auth=os.environ["NOTION_TOKEN"])
-database_id = "d3e3be7fc96a45de8e7d3a78298f9ccd"
+if "NOTION_TOKEN" in os.environ:
+    notion = Client(auth=os.environ["NOTION_TOKEN"])
+    database_id = "d3e3be7fc96a45de8e7d3a78298f9ccd"
+    save_to_notion = True
+else:
+    save_to_notion = False
+    database_id = None
+
 if os.environ["COMPUTERNAME"] == 'PONCELAB-OFF6':
     embed_rootdir = r"D:\DL_Projects\NLP\Embed_data"
     pdf_download_root = r"D:\DL_Projects\NLP\arxiv_pdf"
-else:
+elif os.environ["COMPUTERNAME"] == 'DESKTOP-MENSD6S':
     embed_rootdir = r"E:\DL_Projects\NLP\Embed_data"
     pdf_download_root = r"E:\DL_Projects\NLP\arxiv_pdf"
-
+else:
+    # get temp dir
+    embed_rootdir = os.path.join(os.environ["TMP"], "Embed_data")
+    pdf_download_root = os.path.join(os.environ["TMP"], "arxiv_pdf")
+    os.makedirs(embed_rootdir, exist_ok=True)
+    os.makedirs(pdf_download_root, exist_ok=True)
+    print(f"Embedding data will be saved to {embed_rootdir}")
+    print(f"PDFs will be saved to {pdf_download_root}")
 #%%
-savestr = questionary.text("Directory to save the embedding").ask()
-use_exist = questionary.confirm("Use existing embedding?", default=True).ask()
+savestr = questionary.text("What's the Document label (will be the dir name to save the embedding)?").ask()
+use_exist = True  # questionary.confirm("Use existing embedding?", default=True).ask()
+save_page_id = None
+if database_id is not None:
+    entries_return = notion.databases.query(database_id=database_id, filter={
+        "property": "Name", "title": {"contains": savestr}})
+    print_entries(entries_return)
+    if len(entries_return["results"]) > 0:
+        entry = entries_return["results"][0]
+        if questionary.confirm(f"Use this entry? {entry['id']}").ask():
+            save_page_id = entry["id"]
 
-while True:
+while save_to_notion and save_page_id is None:
     save_page_id = questionary.text("Notion page id for the page to save into?").ask()
     if save_page_id == "" or save_page_id is None:
         if questionary.confirm("Search for a relavent Notion page?", default=True).ask():
@@ -65,9 +88,6 @@ else:
         ]).ask()
     #%%
     if doctype == "html":
-        # ["https://www.cnn.com/2023/03/30/politics/donald-trump-indictment/index.html",
-        #  "https://www.cnn.com/politics/live-news/trump-indictment-stormy-daniels-news-04-03-23/index.html",
-        #  "https://www.cnn.com/politics/live-news/donald-trump-court-charges-04-05-23/index.html"]
         raw_str = questionary.text("What's the html url to parse?", multiline=True).ask()
         html_urls = raw_str.split("\n")
         html_urls = [url.strip() for url in html_urls if url.strip() != ""]
@@ -90,12 +110,11 @@ else:
         # loader = PDFMinerLoader(pdf_path)
         pages = loader.load_and_split()
     elif doctype == "ar5iv":
-        import requests
         # load url with bs4
         # parse the html
         from bs4 import BeautifulSoup
         import urllib.request
-        import re
+        import requests
         arxiv_id = questionary.text("What's the arxiv id?").ask()
         url = f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}"
         # loader = UnstructuredURLLoader(urls=[url])
@@ -137,6 +156,7 @@ else:
         vectordb.persist()
     else:
         exit()
+
 #%%
 chat_temperature = questionary.text("Sampling temperature for ChatGPT?", default="0.5").ask()
 chat_temperature = float(chat_temperature)
@@ -146,36 +166,44 @@ pdf_qa_new = ConversationalRetrievalChain.from_llm(ChatOpenAI(temperature=chat_t
                                     vectordb.as_retriever(), return_source_documents=True, max_tokens_limit=4000)
 
 #%%
+
 qa_path = embed_persist_dir + "_qa_history"
 os.makedirs(qa_path, exist_ok=True)
-while True:
-    # query = "For robotics purpose, which algorithm did they used, PPO, Q-learning, etc.?"
-    query = questionary.text("Question: ", multiline=True).ask()
-    if query == "" or query is None:
-        is_exit = questionary.confirm("Exit?").ask()
-        if is_exit:
-            break
-        else:
-            continue
+with get_openai_callback() as cb:
+    while True:
+        # query = "For robotics purpose, which algorithm did they used, PPO, Q-learning, etc.?"
+        query = questionary.text("Question: ", multiline=True).ask()
+        if query == "" or query is None:
+            is_exit = questionary.confirm("Exit?").ask()
+            if is_exit:
+                break
+            else:
+                continue
 
-    result = pdf_qa_new({"question": query, "chat_history": ""})
+        result = pdf_qa_new({"question": query, "chat_history": ""})
 
-    answer = result["answer"]
-    refdocs = result['source_documents']
-    refstrs = [str(refdoc.metadata) + refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
-    print("\nAnswer:")
-    print(textwrap.fill(result["answer"], 80))
-    print("\nReference:")
-    for refdoc in refdocs:
-        print("Ref doc:\n", refdoc.metadata)
-        print(textwrap.fill(refdoc.page_content[:ref_maxlen], 80))
-    print("\n")
-    save_qa_history(query, result, qa_path)
-    if save_page_id is not None:
-        try:
-            notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs))
-        except Exception as e:
-            print("Failed to save to notion")
-            print(e)
-            refstrs_meta = [str(refdoc.metadata) for refdoc in refdocs]
-            notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs_meta))
+        answer = result["answer"]
+        refdocs = result['source_documents']
+        refstrs = [str(refdoc.metadata) + refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
+        print("\nAnswer:")
+        print(textwrap.fill(result["answer"], 80))
+        print("\nReference:")
+        for refdoc in refdocs:
+            print("Ref doc:\n", refdoc.metadata)
+            print(textwrap.fill(refdoc.page_content[:ref_maxlen], 80))
+        print("\n")
+        save_qa_history(query, result, qa_path)
+        if save_page_id is not None:
+            try:
+                notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs))
+            except Exception as e:
+                print("Failed to save to notion")
+                print(e)
+                refstrs_meta = [str(refdoc.metadata) for refdoc in refdocs]
+                notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs_meta))
+
+    print(f"Finish conversation")
+    print(f"Total Tokens: {cb.total_tokens}")
+    print(f"Prompt Tokens: {cb.prompt_tokens}")
+    print(f"Completion Tokens: {cb.completion_tokens}")
+    print(f"Total Cost (USD): ${cb.total_cost}")
