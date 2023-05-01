@@ -85,6 +85,7 @@ def blocks2text(blocks):
         else:
             print(block["type"])
 
+
 # query = "2106.05963"
 while True:
     query = questionary.text("Enter arXiv ID:").ask()
