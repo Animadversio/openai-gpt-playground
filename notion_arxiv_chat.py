@@ -176,6 +176,8 @@ while True:
     pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
     r = requests.get(ar5iv_url, allow_redirects=True, )
     if r.url.startswith("https://ar5iv.labs.arxiv.org/html"):
+        # then download html to parse
+        print(f"Downloading {r.url}...")
         open(join(pdf_download_root, f"{arxiv_id}.html"), 'wb').write(r.content)
         loader = BSHTMLLoader(join(pdf_download_root, f"{arxiv_id}.html"),
                               open_encoding="utf8", bs_kwargs={"features": "html.parser"})
@@ -189,6 +191,9 @@ while True:
         # loader = PDFMinerLoader(pdf_path)
         pages = loader.load_and_split()
 
+    if not questionary.confirm("Q&A Chatting with this file?").ask():
+        continue
+    # create embeddings
     embeddings = OpenAIEmbeddings()
     if os.path.exists(embed_persist_dir):
         print("Loading embeddings from", embed_persist_dir)
