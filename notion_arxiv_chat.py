@@ -20,11 +20,11 @@ import arxiv
 from notion_tools import QA_notion_blocks, clean_metadata, print_entries, save_qa_history
 
 if os.environ["COMPUTERNAME"] == 'PONCELAB-OFF6':
-    embed_rootdir = r"D:\DL_Projects\NLP\Embed_data"
-    pdf_download_root = r"D:\DL_Projects\NLP\arxiv_pdf"
+    embed_rootdir = r"E:\OneDrive - Harvard University\openai-emb-database\Embed_data"
+    pdf_download_root = r"E:\OneDrive - Harvard University\openai-emb-database\arxiv_pdf"
 elif os.environ["COMPUTERNAME"] == 'DESKTOP-MENSD6S':
-    embed_rootdir = r"E:\DL_Projects\NLP\Embed_data"
-    pdf_download_root = r"E:\DL_Projects\NLP\arxiv_pdf"
+    embed_rootdir = r"E:\OneDrive - Harvard University\openai-emb-database\Embed_data"
+    pdf_download_root = r"E:\OneDrive - Harvard University\openai-emb-database\arxiv_pdf"
 else:
     # get temp dir
     embed_rootdir = os.path.join(os.environ["TMP"], "Embed_data")
