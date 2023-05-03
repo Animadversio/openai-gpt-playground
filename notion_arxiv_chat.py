@@ -143,7 +143,7 @@ while True:
 
     # check if entry already exists in Notion database
     results_notion = notion.databases.query(database_id=database_id,
-                          filter={"property": "Link", "url": {"contains": arxiv_id}})
+                          filter={"property": "Link", "url": {"contains": arxiv_id.split("v")[0]}})
     if len(results_notion["results"]) == 0:
         # if entry doesn't exist, add it to the database
         print(f"Adding entry paper {arxiv_id}: {title}")
@@ -154,7 +154,7 @@ while True:
     elif len(results_notion["results"]) == 1:
         page_id, page = results_notion["results"][0]["id"], results_notion["results"][0]
     else:
-        # if entry exists, use it instead
+        # if multiple entry exists, use it instead
         print_entries(results_notion, ) # print_prop=("url", )
         print("Entry already exists as above. Exiting.")
         for page in results_notion["results"]:
