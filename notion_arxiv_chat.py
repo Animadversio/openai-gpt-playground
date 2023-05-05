@@ -17,18 +17,21 @@ from langchain.callbacks import get_openai_callback
 import questionary
 from notion_client import Client
 import arxiv
-from notion_tools import QA_notion_blocks, clean_metadata, print_entries, save_qa_history
+from notion_tools import QA_notion_blocks, clean_metadata, print_entries, save_qa_history, load_qa_history
 
 if os.environ["COMPUTERNAME"] == 'PONCELAB-OFF6':
     embed_rootdir = r"E:\OneDrive - Harvard University\openai-emb-database\Embed_data"
     pdf_download_root = r"E:\OneDrive - Harvard University\openai-emb-database\arxiv_pdf"
+    history_file = r"E:\OneDrive - Harvard University\openai-emb-database\arxiv_id_history.txt"
 elif os.environ["COMPUTERNAME"] == 'DESKTOP-MENSD6S':
     embed_rootdir = r"E:\OneDrive - Harvard University\openai-emb-database\Embed_data"
     pdf_download_root = r"E:\OneDrive - Harvard University\openai-emb-database\arxiv_pdf"
+    history_file = r"E:\OneDrive - Harvard University\openai-emb-database\arxiv_id_history.txt"
 else:
     # get temp dir
     embed_rootdir = os.path.join(os.environ["TMP"], "Embed_data")
     pdf_download_root = os.path.join(os.environ["TMP"], "arxiv_pdf")
+    history_file = os.path.join(os.environ["TMP"], "arxiv_id_history.txt")
     os.makedirs(embed_rootdir, exist_ok=True)
     os.makedirs(pdf_download_root, exist_ok=True)
     print(f"Embedding data will be saved to {embed_rootdir}")
@@ -116,7 +119,62 @@ def blocks2text(blocks):
             print(block["type"])
 
 
-# query = "2106.05963"
+def print_qa_result(result, ref_maxlen=200, line_width=80):
+    print("\nAnswer:")
+    print(textwrap.fill(result["answer"], line_width))
+    print("\nReference:")
+    for refdoc in result['source_documents']:
+        print("Ref doc:\n", refdoc.metadata)
+        print(textwrap.fill(refdoc.page_content[:ref_maxlen], line_width))
+    print("\n")
+
+
+def update_history(arxiv_id, paper=None):
+    with open(history_file, "a", encoding="utf-8") as f:
+        f.write("-------------------------\n")
+        f.write(f"{arxiv_id}\n")
+        if paper is not None:
+            title = paper.title.replace('\n', '')
+            url = paper.entry_id.replace('\n', '')
+            f.write(f"{title}\n")
+            f.write(f"{url}\n")
+        else:
+            f.write("NA\n")
+            f.write("NA\n")
+
+
+def load_history():
+    with open(history_file, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    arxiv_ids = []
+    titles = []
+    urls = []
+    # parsing the history file
+    for i, line in enumerate(lines):
+        if line.startswith("-------------------------"):
+            arxiv_ids.append(lines[i + 1].strip())
+            titles.append(lines[i + 2].strip())
+            urls.append(lines[i + 3].strip())
+    arxiv_ids = arxiv_ids[::-1]
+    titles = titles[::-1]
+    urls = urls[::-1]
+    return arxiv_ids, titles, urls
+
+
+def print_recent_history(recent=5):
+    arxiv_ids, titles, urls = load_history()
+    print("Recent history:")
+    for i, (arxiv_id, title, url) in enumerate(zip(arxiv_ids, titles, urls)):
+        print(f"[{arxiv_id}] {url} {title}")
+        if i >= recent - 1:
+            break
+
+
+print("Some recent added Arxiv papers:")
+entries = notion.databases.query(database_id=database_id, page_size=10,
+                                 filter={"property": "Link", "url": {"contains": "arxiv"}})
+print_entries(entries)
+print_recent_history(recent=5)
 while True:
     arxiv_id = questionary.text("Enter arXiv ID:").ask()
     # Search it on arxiv
@@ -133,6 +191,8 @@ while True:
         print("No results found.")
         continue
 
+
+    update_history(arxiv_id, paper=paper)
     title = paper.title
     authors = [author.name for author in paper.authors]
     pubyear = paper.published
@@ -153,6 +213,7 @@ while True:
         # paper.download_source()
     elif len(results_notion["results"]) == 1:
         page_id, page = results_notion["results"][0]["id"], results_notion["results"][0]
+        print_entries(results_notion, print_prop=("url", ))  #
     else:
         # if multiple entry exists, use it instead
         print_entries(results_notion, ) # print_prop=("url", )
@@ -168,10 +229,9 @@ while True:
                                      choices=[page["id"] for page in results_notion["results"]]).ask()
         page = notion.pages.retrieve(page_id)
     #%%
-    save_page_id = page_id
-    embed_persist_dir = join(embed_rootdir, arxiv_id)
     # doctype = questionary.select("Select download document type:", default="ar5iv",
     #                                 choices=["ar5iv", "arxiv"]).ask() # , "pdf", "pdf+arxiv", "pdf+ar5iv"
+    save_page_id = page_id
     ar5iv_url = f"https://ar5iv.labs.arxiv.org/html/{arxiv_id}"
     pdf_url = f"https://arxiv.org/pdf/{arxiv_id}.pdf"
     r = requests.get(ar5iv_url, allow_redirects=True, )
@@ -193,14 +253,26 @@ while True:
 
     if not questionary.confirm("Q&A Chatting with this file?").ask():
         continue
+    embed_persist_dir = join(embed_rootdir, arxiv_id)
+    qa_path = embed_persist_dir + "_qa_history"
+    os.makedirs(qa_path, exist_ok=True)
     # create embeddings
     embeddings = OpenAIEmbeddings()
     if os.path.exists(embed_persist_dir):
         print("Loading embeddings from", embed_persist_dir)
         vectordb = Chroma(persist_directory=embed_persist_dir, embedding_function=embeddings)
+        print("Loading Q&A history from", qa_path)
+        chat_history, queries, results = load_qa_history(qa_path)
+        while True:
+            question = questionary.select("Select Q&A history:", choices=["New query"] + queries, default="New query").ask()
+            if question == "New query":
+                break
+            else:
+                print("Q:", question)
+                result = results[queries.index(question)]
+                print_qa_result(result, )
     else:
         print("Creating embeddings and saving to", embed_persist_dir)
-
         vectordb = Chroma.from_documents(pages, embedding=embeddings,
                                          persist_directory=embed_persist_dir, )
         vectordb.persist()
@@ -208,12 +280,10 @@ while True:
     chat_temperature = questionary.text("Sampling temperature for ChatGPT?", default="0.3").ask()
     chat_temperature = float(chat_temperature)
     # ref_maxlen = questionary.text("Max length of reference document?", default="300").ask()
-    ref_maxlen = 200 #int(ref_maxlen)
+    ref_maxlen = 200
     pdf_qa_new = ConversationalRetrievalChain.from_llm(ChatOpenAI(temperature=chat_temperature, model_name="gpt-3.5-turbo"),
                                         vectordb.as_retriever(), return_source_documents=True, max_tokens_limit=4000)
 
-    qa_path = embed_persist_dir + "_qa_history"
-    os.makedirs(qa_path, exist_ok=True)
     with get_openai_callback() as cb:
         while True:
             # query = "For robotics purpose, which algorithm did they used, PPO, Q-learning, etc.?"
@@ -226,18 +296,12 @@ while True:
 
             result = pdf_qa_new({"question": query, "chat_history": ""})
 
-            answer = result["answer"]
-            refdocs = result['source_documents']
-            refstrs = [str(refdoc.metadata) + refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
-            print("\nAnswer:")
-            print(textwrap.fill(result["answer"], 80))
-            print("\nReference:")
-            for refdoc in refdocs:
-                print("Ref doc:\n", refdoc.metadata)
-                print(textwrap.fill(refdoc.page_content[:ref_maxlen], 80))
-            print("\n")
+            print_qa_result(result)
             save_qa_history(query, result, qa_path)
             if save_page_id is not None:
+                answer = result["answer"]
+                refdocs = result['source_documents']
+                refstrs = [str(refdoc.metadata) + refdoc.page_content[:ref_maxlen] for refdoc in refdocs]
                 try:
                     notion.blocks.children.append(save_page_id, children=QA_notion_blocks(query, answer, refstrs))
                 except Exception as e:

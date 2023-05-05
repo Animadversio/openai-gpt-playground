@@ -1,3 +1,6 @@
+import os
+import pickle as pkl
+from os.path import join
 from notion_client import Client
 
 def QA_notion_blocks(Q, A, refs=()):
@@ -61,9 +64,6 @@ def clean_metadata(metadata):
 
 
 def save_qa_history(query, result, qa_path,):
-    import os
-    import pickle as pkl
-    from os.path import join
     uid = 0
     while os.path.exists(join(qa_path, f"QA{uid:05d}.pkl")):
         uid += 1
@@ -88,6 +88,18 @@ def save_qa_history(query, result, qa_path,):
             f.write(doc.page_content[:250])
             f.write("\n\n")
         f.write("-------------------------\n\n")
+
+
+def load_qa_history(qa_path):
+    pkl_path = join(qa_path, "chat_history.pkl")
+    if os.path.exists(pkl_path):
+        chat_history = pkl.load(open(pkl_path, "rb"))
+    else:
+        chat_history = []
+    queries = [q for q, _ in chat_history]
+    results = [r for _, r in chat_history]
+    return chat_history, queries, results
+
 
 
 def update_title(notion: Client, page_id, title):
