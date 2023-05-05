@@ -2,7 +2,7 @@ import os
 from notion_client import Client
 from notion_tools import print_entries
 import arxiv
-
+#%%
 results = list(arxiv.Search("2106.05963").results())
 #%%
 print(results[0].title)
@@ -13,7 +13,7 @@ database_id = "d3e3be7fc96a45de8e7d3a78298f9ccd"
 notion = Client(auth=os.environ["NOTION_TOKEN"])
 #%%
 # query database, search for entries with "arxiv" in the Link field
-entries = notion.databases.query(database_id=database_id,
+entries = notion.databases.query(database_id=database_id, page_size=10,
                                  filter={"property": "Link", "url": {"contains": "arxiv"}})
 print_entries(entries)
 #%%
