@@ -26,3 +26,58 @@ for linei, (text_cn, text_en, prompt) in tqdm(enumerate(text_prompt_pairs)):
         while (Path(rootdir)/f"poem_L{linei:02d}_img{uuid:02d}.png").exists():
             uuid += 1
         image.save(Path(rootdir)/f"poem_L{linei:02d}_img{uuid:02d}.png")
+#%%
+# generate the diffusion latent trajectory and visualization gif
+image_reservoir = []
+latents_reservoir = []
+@torch.no_grad()
+def plot_show_callback(i, t, latents):
+    latents_reservoir.append(latents.detach().cpu())
+    image = pipe.vae.decode(1 / 0.18215 * latents).sample
+    image = (image / 2 + 0.5).clamp(0, 1)
+    image = image.cpu().permute(0, 2, 3, 1).float().numpy()
+    # plt_show_image(image)
+    # plt.imsave(f"diffprocess/sample_{i:02d}.png", image)
+    image_reservoir.append(image)
+
+@torch.no_grad()
+def save_latents(i, t, latents):
+    latents_reservoir.append(latents.detach().cpu())
+
+#%%
+# save the image_reservoir as a gif
+import imageio
+imageio.mimsave("diffprocess/sample.gif", image_reservoir, fps=10)
+#%%
+for i, image in enumerate(images):
+    uuid = i
+    while (Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}.png").exists():
+        uuid += 1
+    image.save(Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}.png")
+    imgseq = [imgs[i] for imgs in image_reservoir]
+    imageio.mimsave(Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}.gif", imgseq, fps=10)
+    imageio.mimsave(Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}.mp4", imgseq, fps=10)
+    latent_traj = torch.stack(latents_reservoir)
+#%%
+for linei, (text_cn, text_en, prompt) in tqdm(enumerate(text_prompt_pairs)):
+    # 40 mins for 19 lines of poems, with image saving
+    image_reservoir = []
+    latents_reservoir = []
+    images = pipe(prompt, num_images_per_prompt=4, callback=plot_show_callback).images
+    latents_seq_all = torch.stack(latents_reservoir)
+    for i, image in enumerate(images):
+        uuid = i
+        while (Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}.png").exists():
+            uuid += 1
+        image.save(Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}.png")
+        imgseq = [imgs[i] for imgs in image_reservoir]
+        # make montage of the images and save as jpg
+        imageio.mimsave(Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}_rev.gif", imgseq[::-1], fps=10)
+        imageio.mimsave(Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}_rev.mp4", imgseq[::-1], fps=10)
+        torch.save(latents_seq_all[:, i], Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}_latents.pt")
+#%%
+# extract image from the gif files
+import imageio
+import numpy as np
+from PIL import Image
+from pathlib import Path
