@@ -25,3 +25,20 @@ complete_resp = openai.Completion.create(
 import textwrap
 print(textwrap.fill(complete_resp['choices'][0]['text'], 80))
 
+#%%
+import os
+import openai
+openai.api_key = os.getenv("OPENAI_API_KEY") #
+query = '''"海洋在我们头顶，天空在脚下，头顶的海洋向我们砸了过来像一场暴雨，劈头盖脸浇在船顶上 " translate this into an English prompt for Stable Diffusion2. Just output the prompt between " " without any text before or after it'''
+completion = openai.ChatCompletion.create(
+    model="gpt-3.5-turbo",
+    temperature=0.7,
+    max_tokens=200,
+    messages=[
+    {"role": "system", "content": "You are a helpful and knowledgeable art assistant, "
+                                  "helping people to translate chinese text in to English description for generative art."},
+    {"role": "user", "content": query},
+    ]
+)
+print(completion)
+answer = completion["choices"][0]["message"]["content"]
