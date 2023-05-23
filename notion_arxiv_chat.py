@@ -17,7 +17,13 @@ from langchain.callbacks import get_openai_callback
 import questionary
 from notion_client import Client
 import arxiv
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import InMemoryHistory, FileHistory
 from notion_tools import QA_notion_blocks, clean_metadata, print_entries, save_qa_history, load_qa_history
+
+history = FileHistory("notion_arxiv_history.txt")
+session = PromptSession(history=history)
+
 
 if os.environ["COMPUTERNAME"] == 'PONCELAB-OFF6':
     embed_rootdir = r"E:\OneDrive - Harvard University\openai-emb-database\Embed_data"
