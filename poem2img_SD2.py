@@ -76,8 +76,5 @@ for linei, (text_cn, text_en, prompt) in tqdm(enumerate(text_prompt_pairs)):
         imageio.mimsave(Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}_rev.mp4", imgseq[::-1], fps=10)
         torch.save(latents_seq_all[:, i], Path(rootdir) / f"poem_L{linei:02d}_img{uuid:02d}_latents.pt")
 #%%
-# extract image from the gif files
-import imageio
-import numpy as np
-from PIL import Image
-from pathlib import Path
+# extract frames from the mp4 files
+
