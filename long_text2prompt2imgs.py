@@ -7,7 +7,7 @@ import pickle as pkl
 import json
 from pathlib import Path
 rootdir = r"E:\DL_Projects\NLP\Poem2Art"
-openai.api_key = os.getenv("OPENAI_API_KEY") #
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 text = """
 我看到了我的爱恋
@@ -52,7 +52,7 @@ text = """
 usage_counter = {"completion_tokens": 0,  "prompt_tokens": 0,  "total_tokens": 0}
 #%%
 lines = text.strip().split("\n")
-bsize = 2
+bsize = 1
 # text_description = "海洋在我们头顶，天空在脚下，头顶的海洋向我们砸了过来像一场暴雨，劈头盖脸浇在船顶上"
 
 text_translation_pairs = []
@@ -90,10 +90,10 @@ for i in range(0, len(lines), bsize):
 print(usage_counter)
 
 #%%
-with open(Path(rootdir)/"text_translation_pairs.pkl", "wb") as f:
+with open(Path(rootdir)/"text_translation_pairs_singleline.pkl", "wb") as f:
     pkl.dump(text_translation_pairs, f)
 # json
-with open(Path(rootdir)/"text_translation_pairs.json", "w", encoding="utf-8") as f:
+with open(Path(rootdir)/"text_translation_pairs_singleline.json", "w", encoding="utf-8") as f:
     json.dump(text_translation_pairs, f, separators=(',', ':'), ensure_ascii=False, indent=2)
 #%%
 system_message = """
@@ -116,9 +116,17 @@ Concept: a close up shot of a plant with blue and golden leaves
 Prompt: a close up of a plant with golden leaves, by Hans Schwarz, pexels, process art, background image, monochromatic background, bromeliads, soft. high quality, abstract design. blue, flax, aluminium, walking down, solid colours material, background artwork 
 """
 
-text_translation_pairs = pkl.load(open(Path(rootdir)/"text_translation_pairs.pkl", "rb"))
+# text_translation_pairs = pkl.load(open(Path(rootdir)/"text_translation_pairs.pkl", "rb"))
+text_translation_pairs = pkl.load(open(Path(rootdir)/"text_translation_pairs_singleline.pkl", "rb"))
 text_prompt_pairs = []
 for i, (text_cn, text_en) in enumerate(text_translation_pairs):
+# for text_cn, text_en in [("跌落二维里化作了泡影", "falling into two-dimensional space and becoming a bubble. Use this phrase as inspiration to create a generative artwork that explores themes of transformation, ephemerality, and the boundaries between different states of being."),
+#                          ("我捧出给她的礼物", "I present a gift to her.")]:
+# text_cn, text_en = "前进，前进，不择手段的前进！", "Move forward, forward, forward at all costs!"
+# for text_cn, text_en in [("孩子们，家已经变成一副画了！", "Children, our home has become a painting!"),
+#                     ("宇宙很大, 生活更大, 我們一定還能相見的", "The universe is big, life is bigger, we will meet again"),
+#                     ("我們度過了幸福的一生", "We have spent a happy life together"),
+#                     ("歡迎你們來到647號宇宙", "Welcome to the Universe 647"),]:
     query = f"""
     The concept to be visualized is "{text_en}" translate this into an English prompt for MidJourney.
     """
@@ -136,6 +144,9 @@ for i, (text_cn, text_en) in enumerate(text_translation_pairs):
                 ]
             )
             break
+        except openai.error.APIConnectionError:
+            print("API connection error. Waiting 5 seconds and trying again...")
+            time.sleep(1)
         except openai.error.RateLimitError:
             print("Rate limit reached. Waiting 5 seconds and trying again...")
             time.sleep(1)
@@ -149,7 +160,7 @@ for i, (text_cn, text_en) in enumerate(text_translation_pairs):
     text_prompt_pairs.append((text_cn, text_en, answer))
     for k, v in completion["usage"].items():
         usage_counter[k] += v
-print(usage_counter)
+    print(usage_counter)
 #%%
 def price_func(usage_counter):
     return usage_counter['total_tokens'] * 0.002 / 1000
@@ -157,6 +168,14 @@ def price_func(usage_counter):
 
 print("Total cost $", price_func(usage_counter))
 
+#%%
+with open(Path(rootdir)/"text_prompt_pairs_singleline.pkl", "wb") as f:
+    pkl.dump(text_prompt_pairs, f)
+# json
+with open(Path(rootdir)/"text_prompt_pairs_singleline.json", "w", encoding="utf-8") as f:
+    json.dump(text_prompt_pairs, f, separators=(',', ':'), ensure_ascii=False, indent=2)
+#%%
+# text_prompt_pairs = json.load(open(Path(rootdir)/"text_prompt_pairs_singleline.json", "r", encoding="utf-8"))
 #%%
 with open(Path(rootdir)/"text_prompt_pairs.pkl", "wb") as f:
     pkl.dump(text_prompt_pairs, f)
