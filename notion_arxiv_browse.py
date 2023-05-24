@@ -70,6 +70,7 @@ def print_arxiv_entry(paper: arxiv.arxiv.Result):
     print("Published:", pubyear.date().isoformat())
     print("Abstract:")
     print(textwrap.fill(abstract, width=100))
+    print("comments:", paper.comment)
     print("URL:", abs_url)
 
 
@@ -129,6 +130,11 @@ def add_to_notion(paper: arxiv.arxiv.Result):
 
 
 # query = "2106.05963"
+# query = "au:Yann LeCun"
+# Logic:
+# Ctrl-C in the navigation loop to exit and start a new query
+# Ctrl-C in the query prompt to exit the program
+# Up/Down to navigate through prompts and query history
 MAX_RESULTS = 35
 while True:
     try:
@@ -179,16 +185,5 @@ while True:
                     # else:
                     #     break
 
-        # title = paper.title
-        # authors = [author.name for author in paper.authors]
-        # pubyear = paper.published
-        # abstract = paper.summary  # arxiv.download(paper['id'], prefer_source_tex=False).summary
-        # arxiv_id = paper.entry_id.split("/")[-1]
-        # abs_url = paper.entry_id
-        # print_arxiv_entry(paper)
-        # # Add the entry if confirmed
-        # if questionary.confirm("Add this entry?").ask():
-        #     add_to_notion(paper)
-        # back2list = questionary.confirm("Back to the list").ask()
     except Exception as e:
         continue
