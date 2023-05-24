@@ -1,6 +1,7 @@
 import os
 import pickle as pkl
 from os.path import join
+import textwrap
 from notion_client import Client
 
 def QA_notion_blocks(Q, A, refs=()):
@@ -100,6 +101,15 @@ def load_qa_history(qa_path):
     results = [r for _, r in chat_history]
     return chat_history, queries, results
 
+
+def print_qa_result(result, ref_maxlen=200, line_width=80):
+    print("\nAnswer:")
+    print(textwrap.fill(result["answer"], line_width))
+    print("\nReference:")
+    for refdoc in result['source_documents']:
+        print("Ref doc:\n", refdoc.metadata)
+        print(textwrap.fill(refdoc.page_content[:ref_maxlen], line_width))
+    print("\n")
 
 
 def update_title(notion: Client, page_id, title):
