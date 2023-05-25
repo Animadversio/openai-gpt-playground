@@ -10,6 +10,7 @@ from prompt_toolkit.history import InMemoryHistory, FileHistory
 history = FileHistory("notion_arxiv_history.txt")
 session = PromptSession(history=history)
 
+MAX_RESULTS = 35
 database_id = "d3e3be7fc96a45de8e7d3a78298f9ccd"
 notion = Client(auth=os.environ["NOTION_TOKEN"])
 
@@ -135,7 +136,6 @@ def add_to_notion(paper: arxiv.arxiv.Result):
 # Ctrl-C in the navigation loop to exit and start a new query
 # Ctrl-C in the query prompt to exit the program
 # Up/Down to navigate through prompts and query history
-MAX_RESULTS = 35
 while True:
     try:
         cnt = 0
