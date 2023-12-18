@@ -37,20 +37,20 @@ search_query = "cat:cs.* AND all:diffusion OR all:score-based"  # You can change
 # Fetch papers
 search = arxiv.Search(
     query=search_query,
-    max_results=30000,
+    max_results=15000,
     sort_by=arxiv.SortCriterion.SubmittedDate,
     sort_order=arxiv.SortOrder.Descending,
 )
 #%%
 # Print titles and abstracts of the latest papers
 paper_collection = []
-paper_id = 0
-for paper in arxiv.Client(delay_seconds=5.0, num_retries=50).results(search):
+idx = 0
+for paper in arxiv.Client(delay_seconds=5.0, num_retries=10).results(search):
     paper_collection.append(paper)
     id_pure = paper.entry_id.strip("http://arxiv.org/abs/")
-    print(f"{paper_id} [{id_pure}] ({paper.published.date()})",
+    print(f"{idx} [{id_pure}] ({paper.published.date()})",
           paper.title)
-    paper_id += 1
+    idx += 1
     # print("Abstract:", paper.summary)
     # print("Categories:", paper.categories, end=" ")
     # print("ID:", paper.entry_id, end=" ")
@@ -59,9 +59,9 @@ for paper in arxiv.Client(delay_seconds=5.0, num_retries=50).results(search):
 import matplotlib.pyplot as plt
 import pickle as pkl
 import pandas as pd
-pkl.dump(paper_collection, open("arxiv_collection.pkl", "wb"))
+pkl.dump(paper_collection, open("arxiv_collection_7k.pkl", "wb"))
 df = pd.DataFrame(paper_collection)
-df.to_csv("arxiv_collection.csv")
+df.to_csv("arxiv_collection_7k.csv")
 #%%
 paper_collection = pkl.load(open("arxiv_collection.pkl", "rb"))
 
@@ -88,7 +88,7 @@ client = openai.OpenAI(
 )
 #%%
 from tqdm import tqdm
-batch_size = 20
+batch_size = 100
 embedding_col = []
 for i in tqdm(range(0, len(embedstr_col), batch_size)):
     embedstr_batch = embedstr_col[i:i+batch_size]
@@ -104,10 +104,10 @@ for i in tqdm(range(0, len(embedstr_col), batch_size)):
 # save the embeddings
 import numpy as np
 import pickle as pkl
-pkl.dump(embedding_col, open("arxiv_embedding.pkl", "wb"))
+pkl.dump(embedding_col, open("arxiv_embedding_7k.pkl", "wb"))
 # format as array
 embedding_arr = np.stack([embed.embedding for embed in embedding_col])
-pkl.dump([embedding_arr, paper_collection], open("arxiv_embedding_arr.pkl", "wb"))
+pkl.dump([embedding_arr, paper_collection], open("arxiv_embedding_arr_7k.pkl", "wb"))
 
 
 
@@ -120,11 +120,13 @@ embedding_tsne = tsne.fit_transform(embedding_arr)
 #%%
 # cluster the embeddings
 # from sklearn.cluster import _agglomerative
-from sklearn.cluster import AgglomerativeClustering, KMeans
+from sklearn.cluster import AgglomerativeClustering, KMeans, DBSCAN
 # cluster = AgglomerativeClustering(n_clusters=20, affinity="cosine", linkage="average")
 # cluster.fit(embedding_arr)
-cluster = KMeans(n_clusters=20, random_state=0)
+cluster = KMeans(n_clusters=30, random_state=0,)
 cluster.fit(embedding_arr)
+# cluster = DBSCAN(eps=0.12, min_samples=10, metric="cosine")
+# cluster.fit(embedding_arr)
 #%%
 # find nearest neighbor of papers
 from sklearn.neighbors import NearestNeighbors
@@ -140,7 +142,7 @@ plt.title("TSNE of arxiv abstracts")
 plt.show()
 #%%
 # show the representative papers from each cluster
-for i in range(20):
+for i in range(cluster.labels_.max()):
     idx = np.where(cluster.labels_ == i)[0][0]
     paper = paper_collection[idx]
     print(f"[Cluster {i}]")
@@ -153,12 +155,44 @@ for i in range(20):
         print(f"\t- Cos:{dist:.3f} ({paper.published.date()})", paper.title, author_names)
     print("\n")
 #%%
+# search for most relevant papers
+# query = '''Score-based models have achieved remarkable results in the generative modeling of many domains. By learning the gradient of smoothed data distribution, they can iteratively generate samples from complex distribution e.g. natural images.
+# However, is there any universal structure in the gradient field that will eventually be learned by any neural network? Here, we aim to find such structures through a normative analysis of the score function.
+# First, we derived the closed-form solution to the scored-based model with a Gaussian score. We claimed that for well-trained diffusion models, the learned score at a high noise scale is well approximated by the linear score of Gaussian. We demonstrated this through empirical validation of pre-trained images diffusion model and theoretical analysis of the score function. This finding enabled us to precisely predict the initial diffusion trajectory using the analytical solution and to accelerate image sampling by 15-30\% by skipping the initial phase without sacrificing image quality. Our finding of the linear structure in the score-based model has implications for better model design and data pre-processing.
+# '''
+query = '''Elucidating the design space of diffusion models'''
+response_query = client.embeddings.create(
+    input=query,
+    model="text-embedding-ada-002"
+)
+query_embed = np.array(response_query.data[0].embedding)
+sim = embedding_arr @ query_embed
+cossim = (sim / np.linalg.norm(embedding_arr, axis=1)
+          / np.linalg.norm(query_embed))
+#%%
+plt.hist(cossim, bins=50)
+plt.show()
+#%%
+print("Query: \n", query)
+# find the nearest neighbor
+top_k_idx = np.argsort(cossim)[::-1][:20]
+for idx in top_k_idx:
+    dist = cossim[idx]
+    paper = paper_collection[idx]
+    arxiv_id = paper.entry_id.strip("http://arxiv.org/abs/")
+    author_names = [author.name for author in paper.authors]
+    print(f"Cos:{dist:.3f} ({paper.published.date()}) [{arxiv_id}]", paper.title, author_names)
+
+
+
+#%%
 query_idx = 100
 dists, idxs = nn.kneighbors(embedding_arr[query_idx:query_idx+1, :])
 for dist, idx in zip(dists[0], idxs[0]):
     paper = paper_collection[idx]
+    arxiv_id = paper.entry_id.strip("http://arxiv.org/abs/")
     author_names = [author.name for author in paper.authors]
-    print(f"Cos:{dist:.3f} ({paper.published.date()})", paper.title, author_names)
+    print(f"Cos:{dist:.3f} ({paper.published.date()}) [{arxiv_id}]", paper.title, author_names)
 
 #%%
 
