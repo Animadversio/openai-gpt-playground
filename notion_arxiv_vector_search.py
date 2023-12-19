@@ -1,4 +1,5 @@
 import os
+import numpy as np
 from os.path import join
 from notion_tools import print_entries
 import pickle as pkl
@@ -6,15 +7,25 @@ import arxiv
 import questionary
 #%%
 abstr_embed_dir = "/Users/binxuwang/Library/CloudStorage/OneDrive-HarvardUniversity/openai-emb-database/Embed_arxiv_abstr"
-database_catalog = {"diffusion_7k": "arxiv_embedding_arr_diffusion_7k.pkl"}
-database_name = "diffusion_7k"
-database_file = database_catalog[database_name]
-embed_arr, paper_collection = pkl.load(open(join(abstr_embed_dir, database_file), "rb"))
+database_catalog = {"diffusion_7k": "arxiv_embedding_arr_diffusion_7k.pkl",
+                    "LLM_5k": "arxiv_embedding_arr_LLM_5k.pkl",}
+# database_name = "diffusion_7k"
+database_name = questionary.select("Select database to browse:", choices=list(database_catalog.keys())+["All"]).ask()
+if not (database_name == "All"):
+    database_file = database_catalog[database_name]
+    embed_arr, paper_collection = pkl.load(open(join(abstr_embed_dir, database_file), "rb"))
+else:
+    embed_arr = []
+    paper_collection = []
+    for database_file in database_catalog.values():
+        embed_arr_cur, paper_collection_cur = pkl.load(open(join(abstr_embed_dir, database_file), "rb"))
+        embed_arr.append(embed_arr_cur)
+        paper_collection.extend(paper_collection_cur)
+    embed_arr = np.concatenate(embed_arr, axis=0)
+
 assert embed_arr.shape[0] == len(paper_collection)
 print(f"Loaded {embed_arr.shape[0]} papers from {database_name}, embed shape {embed_arr.shape}")
 #%%
-import os
-import numpy as np
 from notion_client import Client
 from notion_tools import print_entries
 import arxiv
