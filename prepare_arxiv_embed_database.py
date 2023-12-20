@@ -12,19 +12,7 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-abstr_embed_dir = "/Users/binxuwang/Library/CloudStorage/OneDrive-HarvardUniversity/openai-emb-database/Embed_arxiv_abstr"
-# Name for saving the database
-# database_name = "diffusion_7k"
-database_name = "LLM_5k"
-# Define the search query
-# You can change this to a specific field or topic
-# search_query = "cat:cs.* AND all:diffusion OR all:score-based"  # You can change this to a specific field or topic
-search_query = "cat:cs.* AND all:language model OR all:LLM"
-MAX_PAPER_NUM = 10000
-EMBED_BATCH_SIZE = 100
-
-
-#%%
+#%
 # class names of arxiv
 # https://gist.github.com/jozefg/c2542f51a0b9b3f6efe528fcec90e334
 CS_CLASSES = [
@@ -54,6 +42,28 @@ QBIO_CLASSES = [
 # Which categories do we search
 CLASSES = CS_CLASSES + MATH_CLASSES + QBIO_CLASSES
 
+#%
+abstr_embed_dir = "/Users/binxuwang/Library/CloudStorage/OneDrive-HarvardUniversity/openai-emb-database/Embed_arxiv_abstr"
+# Name for saving the database
+# database_name = "diffusion_7k"
+# database_name = "LLM_5k"
+# database_name = "GAN_6k"
+# database_name = "VAE_2k"
+# database_name = "flow_100"
+# database_name = "normflow_800"
+# database_name = "LLM_18k"
+database_name = "diffusion_10k"
+# Define the search query
+# You can change this to a specific field or topic
+# search_query = "cat:cs.* AND all:diffusion OR all:score-based"  # You can change this to a specific field or topic
+# search_query = 'cat:cs.* AND all:"generative adversarial network" OR all:GAN'
+# search_query = 'cat:cs.* AND all:"variational autoencoder" OR all:VAE'
+# search_query = 'cat:cs.* AND all:"flow matching"'
+# search_query = 'cat:cs.* AND all:"normalizing flow"'
+# search_query = 'cat:cs.* AND all:"language model" OR all:LLM'
+search_query = 'cat:cs.* AND all:diffusion OR all:score-based'
+MAX_PAPER_NUM = 20000
+EMBED_BATCH_SIZE = 100
 
 # Fetch papers
 search = arxiv.Search(
@@ -66,7 +76,7 @@ search = arxiv.Search(
 # Print titles and abstracts of the latest papers
 paper_collection = []
 idx = 0
-for paper in arxiv.Client(delay_seconds=5.0, num_retries=10).results(search):
+for paper in arxiv.Client(page_size=100, delay_seconds=5.0, num_retries=50).results(search):
     paper_collection.append(paper)
     id_pure = paper.entry_id.strip("http://arxiv.org/abs/")
     print(f"{idx} [{id_pure}] ({paper.published.date()})",
@@ -89,6 +99,30 @@ plt.title(f"Publication time distribution for {database_name}\n{search_query}")
 plt.ylabel("count")
 plt.xlabel("time")
 plt.savefig(join(abstr_embed_dir, f"arxiv_time_dist_{database_name}.png"))
+plt.show()
+
+#%%
+import datetime
+# plot the distribution of time
+time_col = [paper.published for paper in paper_collection]
+plt.hist(time_col, bins=200)
+plt.title("Distribution of publication time")
+plt.title(f"Publication time distribution for {database_name}\n{search_query}")
+plt.ylabel("count")
+plt.xlabel("time")
+plt.xlim([datetime.datetime(2017, 1, 1), datetime.datetime(2024, 1, 1)])
+plt.savefig(join(abstr_embed_dir, f"arxiv_time_dist_{database_name}_zoom.png"))
+plt.show()
+#%%
+plt.hist(time_col, bins=200)
+plt.title("Distribution of publication time")
+plt.title(f"Publication time distribution for {database_name}\n{search_query}")
+plt.ylabel("count")
+plt.xlabel("time")
+plt.xlim([datetime.datetime(2020, 1, 1), datetime.datetime(2024, 1, 1)])
+# rotate the xticks
+plt.xticks(rotation=45)
+plt.savefig(join(abstr_embed_dir, f"arxiv_time_dist_{database_name}_zoomplus.png"))
 plt.show()
 #%%
 def entry2string(paper):

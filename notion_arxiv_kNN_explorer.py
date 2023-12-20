@@ -8,8 +8,13 @@ import questionary
 #%%
 abstr_embed_dir = "/Users/binxuwang/Library/CloudStorage/OneDrive-HarvardUniversity/openai-emb-database/Embed_arxiv_abstr"
 database_catalog = {"diffusion_7k": "arxiv_embedding_arr_diffusion_7k.pkl",
-                    "LLM_5k": "arxiv_embedding_arr_LLM_5k.pkl",}
-# database_name = "diffusion_7k"
+                    # "LLM_5k": "arxiv_embedding_arr_LLM_5k.pkl",
+                    "LLM_18k": "arxiv_embedding_arr_LLM_18k.pkl",
+                    "GAN_6k": "arxiv_embedding_arr_GAN_6k.pkl",
+                    "VAE_2k": "arxiv_embedding_arr_VAE_2k.pkl",
+                    "flow_100": "arxiv_embedding_arr_flow_100.pkl",
+                    "normflow_800": "arxiv_embedding_arr_normflow_800.pkl",
+}# database_name = "diffusion_7k"
 database_name = questionary.select("Select database to browse:", choices=list(database_catalog.keys())+["All"]).ask()
 if not (database_name == "All"):
     database_file = database_catalog[database_name]
