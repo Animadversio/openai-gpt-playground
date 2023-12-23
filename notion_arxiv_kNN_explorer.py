@@ -7,8 +7,9 @@ import arxiv
 import questionary
 #%%
 abstr_embed_dir = "/Users/binxuwang/Library/CloudStorage/OneDrive-HarvardUniversity/openai-emb-database/Embed_arxiv_abstr"
-database_catalog = {"diffusion_7k": "arxiv_embedding_arr_diffusion_7k.pkl",
+database_catalog = {# "diffusion_7k": "arxiv_embedding_arr_diffusion_7k.pkl",
                     # "LLM_5k": "arxiv_embedding_arr_LLM_5k.pkl",
+                    "diffusion_10k": "arxiv_embedding_arr_diffusion_10k.pkl",
                     "LLM_18k": "arxiv_embedding_arr_LLM_18k.pkl",
                     "GAN_6k": "arxiv_embedding_arr_GAN_6k.pkl",
                     "VAE_2k": "arxiv_embedding_arr_VAE_2k.pkl",
