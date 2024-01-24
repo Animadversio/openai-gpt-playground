@@ -25,6 +25,7 @@ chatsession = PromptSession(history=chathistory)
 database_id = "d3e3be7fc96a45de8e7d3a78298f9ccd"
 notion = Client(auth=os.environ["NOTION_TOKEN"])
 
+MAX_RESULTS_PER_PAGE = 35
 PDF_DOWNLOAD_ROOT = r"E:\OneDrive - Harvard University\openai-emb-database\arxiv_pdf"
 EMBED_ROOTDIR = r"E:\OneDrive - Harvard University\openai-emb-database\Embed_data"
 
@@ -265,13 +266,12 @@ def notion_paper_chat(arxiv_id, pages=None, save_page_id=None, embed_rootdir="")
 # Ctrl-C in the navigation loop to exit and start a new query
 # Ctrl-C in the query prompt to exit the program
 # Up/Down to navigate through prompts and query history
-MAX_RESULTS = 35
 while True:
     try:
         cnt = 0
         query = session.prompt("Enter arXiv ID or query str: ", multiline=False)
         search_obj = arxiv.Search(query, )
-        results_arxiv = fetch_K_results(search_obj, K=MAX_RESULTS, offset=cnt)
+        results_arxiv = fetch_K_results(search_obj, K=MAX_RESULTS_PER_PAGE, offset=cnt)
         if len(results_arxiv) == 0:
             print("No results found.")
             continue
@@ -294,7 +294,7 @@ while True:
                 # looping of results and pages, navigating through search results
                 print("Multiple results found. Please select one:")
                 choices = [f"{i + 1}: [{paper.entry_id.split('/')[-1]}] {paper.title} " for i, paper in enumerate(results_arxiv)]
-                if len(results_arxiv) == MAX_RESULTS:
+                if len(results_arxiv) == MAX_RESULTS_PER_PAGE:
                     choices.append("0: Next page")
                 if cnt > 0:
                     choices.append("-1: Prev page")
@@ -302,12 +302,12 @@ while True:
                                                else choices[last_selection]).ask()
                 selection = int(selection.split(":")[0])
                 if selection == 0:
-                    cnt += MAX_RESULTS
-                    results_arxiv = fetch_K_results(search_obj, K=MAX_RESULTS, offset=cnt)
+                    cnt += MAX_RESULTS_PER_PAGE
+                    results_arxiv = fetch_K_results(search_obj, K=MAX_RESULTS_PER_PAGE, offset=cnt)
                     continue
                 if selection == -1:
-                    cnt -= MAX_RESULTS
-                    results_arxiv = fetch_K_results(search_obj, K=MAX_RESULTS, offset=cnt)
+                    cnt -= MAX_RESULTS_PER_PAGE
+                    results_arxiv = fetch_K_results(search_obj, K=MAX_RESULTS_PER_PAGE, offset=cnt)
                     continue
                 else:
                     paper = results_arxiv[int(selection) - 1]
@@ -327,6 +327,8 @@ while True:
                     # else:
                     #     break
 
+    except KeyboardInterrupt as e:
+        break
     except Exception as e:
-        print(e)
+        # print(e)
         continue
